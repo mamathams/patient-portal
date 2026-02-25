@@ -5,16 +5,22 @@ pipeline {
     ECR_SNAPSHOT = '376842762709.dkr.ecr.ap-south-1.amazonaws.com/patient-portal'
     ECR_RELEASE = '376842762709.dkr.ecr.ap-south-1.amazonaws.com/patient-portal'
     IMAGE_NAME = 'patientportal'
+    ECS_CLUSTER = 'hospital-management-prod-cluster'
+    ECS_SERVICE = 'patient-portal'
   }
   stages {
-    stage('Checkout & Install') {
+    stage('Git Checkout') {
       steps {
         checkout scm
+      }
+    }
+    stage('Install') {
+      steps {
         sh 'rm -rf node_modules'
         sh 'export NODE_ENV=development && npm install'
       }
     }
-    stage('Quality Checks') {
+    stage('Test') {
       parallel {
         stage('Lint') {
           steps {
@@ -47,11 +53,38 @@ pipeline {
         sh 'npm run build'
       }
     }
-    stage('Docker Build & Trivy Scan') {
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 2, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: false
+        }
+      }
+    }
+    stage('Checkov') {
+      steps {
+        sh '''
+          if find . -name "*.tf" | grep -q .; then
+            checkov -d . --quiet || true
+          else
+            echo "No Terraform files found. Skipping Checkov."
+          fi
+        '''
+      }
+    }
+    stage('Trivy Filesystem Scan') {
+      steps {
+        sh 'trivy fs --exit-code 1 --severity HIGH,CRITICAL . || true'
+      }
+    }
+    stage('Docker Build') {
       steps {
         script {
           dockerImage = docker.build("${ECR_SNAPSHOT}:${env.BUILD_NUMBER}")
         }
+      }
+    }
+    stage('Trivy Image Scan') {
+      steps {
         sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${ECR_SNAPSHOT}:${env.BUILD_NUMBER} || true"
       }
     }
@@ -73,6 +106,19 @@ pipeline {
             sh "docker push ${ECR_RELEASE}:release-${env.BUILD_NUMBER}"
             sh "docker tag ${ECR_SNAPSHOT}:${env.BUILD_NUMBER} ${ECR_RELEASE}:latest"
             sh "docker push ${ECR_RELEASE}:latest"
+          }
+        }
+      }
+    }
+    stage('Deploy to ECS Fargate') {
+      when {
+        branch 'main'
+      }
+      steps {
+        script {
+          withCredentials([aws(credentialsId: 'aws-creds')]) {
+            sh "aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment --region ${AWS_REGION}"
+            sh "aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE} --region ${AWS_REGION}"
           }
         }
       }
