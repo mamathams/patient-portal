@@ -1,5 +1,8 @@
 pipeline {
   agent any
+  parameters {
+    string(name: 'NPM_REGISTRY_URL', defaultValue: '', description: 'Internal Artifactory npm registry URL')
+  }
   environment {
     AWS_REGION = 'ap-south-1'
     ECR_SNAPSHOT = '376842762709.dkr.ecr.ap-south-1.amazonaws.com/patient-portal'
@@ -16,7 +19,14 @@ pipeline {
     }
     stage('Install') {
       steps {
-        sh 'npm install'
+        sh '''
+          test -n "${NPM_REGISTRY_URL}" || { echo "NPM_REGISTRY_URL is required"; exit 1; }
+          npm config set registry "${NPM_REGISTRY_URL}"
+          npm config delete //registry.npmjs.org/:_authToken || true
+          npm config delete _auth || true
+          npm cache clean --force
+          npm install --no-audit --fund=false
+        '''
       }
     }
     stage('Lint') {
