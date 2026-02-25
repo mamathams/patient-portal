@@ -1,9 +1,9 @@
 pipeline {
   agent any
   environment {
-    AWS_REGION = 'us-east-1'
-    ECR_SNAPSHOT = '147997138755.dkr.ecr.us-east-1.amazonaws.com/snapshot/patientportal'
-    ECR_RELEASE = '147997138755.dkr.ecr.us-east-1.amazonaws.com/patientportal'
+    AWS_REGION = 'ap-south-1'
+    ECR_SNAPSHOT = '376842762709.dkr.ecr.ap-south-1.amazonaws.com/patient-portal'
+    ECR_RELEASE = '376842762709.dkr.ecr.ap-south-1.amazonaws.com/patient-portal'
     IMAGE_NAME = 'patientportal'
   }
   stages {
@@ -30,11 +30,11 @@ pipeline {
     }
     stage('SonarQube') {
       steps {
-        withCredentials([string(credentialsId: 'SONAR_TOKEN_PORTAL', variable: 'SONAR_TOKEN')]) {
+        withCredentials([string(credentialsId: 'sonar-patient-portal', variable: 'SONAR_TOKEN')]) {
           sh '''
             export PATH=$PATH:/opt/sonar-scanner/bin
             sonar-scanner \
-              -Dsonar.host.url=http://100.50.131.6:9000 \
+              -Dsonar.host.url=http://13.203.47.35:9000 \
               -Dsonar.login=$SONAR_TOKEN
           '''
         }
@@ -56,8 +56,8 @@ pipeline {
     stage('Push to ECR Snapshot') {
       steps {
         script {
-          withCredentials([aws(credentialsId: 'AWS Credentials')]) {
-            sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin 147997138755.dkr.ecr.us-east-1.amazonaws.com"
+          withCredentials([aws(credentialsId: 'aws-creds')]) {
+            sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin 376842762709.dkr.ecr.ap-south-1.amazonaws.com"
             sh "docker push ${ECR_SNAPSHOT}:${env.BUILD_NUMBER}"
           }
         }
@@ -66,7 +66,7 @@ pipeline {
     stage('Push to Release') {
       steps {
         script {
-          withCredentials([aws(credentialsId: 'AWS Credentials')]) {
+          withCredentials([aws(credentialsId: 'aws-creds')]) {
             sh "docker tag ${ECR_SNAPSHOT}:${env.BUILD_NUMBER} ${ECR_RELEASE}:release-${env.BUILD_NUMBER}"
             sh "docker push ${ECR_RELEASE}:release-${env.BUILD_NUMBER}"
             sh "docker tag ${ECR_SNAPSHOT}:${env.BUILD_NUMBER} ${ECR_RELEASE}:latest"
