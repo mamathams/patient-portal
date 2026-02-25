@@ -110,9 +110,6 @@ pipeline {
       }
     }
     stage('Deploy to ECS Fargate') {
-      when {
-        branch 'main'
-      }
       steps {
         script {
           withCredentials([aws(credentialsId: 'aws-creds')]) {
