@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import React from 'react'
+import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { act } from 'react-dom/test-utils'
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
@@ -56,9 +55,17 @@ vi.mock('../hooks/useAPI', () => ({
 
 import Dashboard from './Dashboard'
 
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+const setElementValue = (element, value) => {
+  const proto = element.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype
+  const descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
+  descriptor.set.call(element, value)
+}
+
 const setInput = (container, name, value) => {
   const element = container.querySelector(`[name="${name}"]`)
-  element.value = value
+  setElementValue(element, value)
   element.dispatchEvent(new Event('input', { bubbles: true }))
   element.dispatchEvent(new Event('change', { bubbles: true }))
 }
