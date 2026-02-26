@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { act } from 'react-dom/test-utils'
 
@@ -102,7 +103,7 @@ describe('Dashboard', () => {
 
   it('renders key dashboard content', () => {
     act(() => {
-      root.render(<Dashboard />)
+      root.render(React.createElement(Dashboard))
     })
 
     expect(container.textContent).toContain('Hospital Management')
@@ -112,7 +113,7 @@ describe('Dashboard', () => {
 
   it('switches to appointments and doctors tabs', () => {
     act(() => {
-      root.render(<Dashboard />)
+      root.render(React.createElement(Dashboard))
     })
 
     const tabs = Array.from(container.querySelectorAll('button.tab'))
@@ -134,7 +135,7 @@ describe('Dashboard', () => {
     mocks.mutateAsync.mockResolvedValueOnce({})
 
     await act(async () => {
-      root.render(<Dashboard />)
+      root.render(React.createElement(Dashboard))
     })
 
     await act(async () => {
@@ -176,7 +177,7 @@ describe('Dashboard', () => {
     })
 
     await act(async () => {
-      root.render(<Dashboard />)
+      root.render(React.createElement(Dashboard))
     })
 
     await act(async () => {
