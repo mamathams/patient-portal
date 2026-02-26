@@ -202,4 +202,62 @@ describe('Dashboard', () => {
 
     expect(container.textContent).toContain('"email" must be a valid email')
   })
+
+  it('shows loading state while patients are being fetched', () => {
+    mocks.patientsState.isLoading = true
+    mocks.patientsState.data = undefined
+
+    act(() => {
+      root.render(React.createElement(Dashboard))
+    })
+
+    expect(container.textContent).toContain('Loading patients')
+  })
+
+  it('shows API error state when patient list request fails', () => {
+    mocks.patientsState.isError = true
+    mocks.patientsState.error = { message: 'boom' }
+
+    act(() => {
+      root.render(React.createElement(Dashboard))
+    })
+
+    expect(container.textContent).toContain('Failed to load patients: boom')
+  })
+
+  it('shows empty state when no patients are returned', () => {
+    mocks.patientsState.data = { data: [] }
+
+    act(() => {
+      root.render(React.createElement(Dashboard))
+    })
+
+    expect(container.textContent).toContain('No patients found.')
+  })
+
+  it('shows pending button state and generic submit error fallback', async () => {
+    mocks.createPatientState.isPending = true
+    mocks.mutateAsync.mockRejectedValueOnce(new Error('network down'))
+
+    await act(async () => {
+      root.render(React.createElement(Dashboard))
+    })
+
+    expect(container.textContent).toContain('Saving')
+
+    await act(async () => {
+      setInput(container, 'firstName', 'Mamatha')
+      setInput(container, 'lastName', 'Gowda')
+      setInput(container, 'email', 'mamatha@example.com')
+      setInput(container, 'phone', '8105067916')
+      setInput(container, 'dateOfBirth', '1997-06-08')
+    })
+
+    const form = container.querySelector('form.patient-form')
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    expect(container.textContent).toContain('network down')
+  })
 })
