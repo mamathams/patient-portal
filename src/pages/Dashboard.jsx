@@ -4,6 +4,7 @@ import { useCreatePatient, usePatients } from '../hooks/useAPI'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('patients')
+  const [createErrorMessage, setCreateErrorMessage] = useState('')
   const [patientForm, setPatientForm] = useState({
     firstName: '',
     lastName: '',
@@ -19,31 +20,51 @@ const Dashboard = () => {
   const createPatient = useCreatePatient()
   const { data: patientsResponse, isLoading, isError, error } = usePatients({ page: 1, limit: 8 })
   const patients = useMemo(() => patientsResponse?.data || [], [patientsResponse])
-  const hasCreateError = Boolean(createPatient.error)
+  const hasCreateError = Boolean(createErrorMessage)
 
   const handlePatientChange = (event) => {
     const { name, value } = event.target
+    setCreateErrorMessage('')
     setPatientForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handlePatientSubmit = async (event) => {
     event.preventDefault()
-    await createPatient.mutateAsync({
+    setCreateErrorMessage('')
+
+    const payload = {
       ...patientForm,
-      dateOfBirth: patientForm.dateOfBirth ? new Date(patientForm.dateOfBirth) : null
-    })
-    setPatientForm({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      gender: 'M',
-      city: '',
-      state: '',
-      status: 'active'
-    })
-    await queryClient.invalidateQueries({ queryKey: ['patients'] })
+      firstName: patientForm.firstName.trim(),
+      lastName: patientForm.lastName.trim(),
+      email: patientForm.email.trim().toLowerCase(),
+      phone: patientForm.phone.trim(),
+      dateOfBirth: patientForm.dateOfBirth || null,
+      city: patientForm.city.trim(),
+      state: patientForm.state.trim()
+    }
+
+    try {
+      await createPatient.mutateAsync(payload)
+      setPatientForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+        gender: 'M',
+        city: '',
+        state: '',
+        status: 'active'
+      })
+      await queryClient.invalidateQueries({ queryKey: ['patients'] })
+    } catch (submitError) {
+      const apiMessage =
+        submitError?.response?.data?.errors?.[0]?.message ||
+        submitError?.response?.data?.message ||
+        submitError?.message ||
+        'Could not save patient. Check inputs.'
+      setCreateErrorMessage(apiMessage)
+    }
   }
 
   return (
@@ -245,7 +266,7 @@ const Dashboard = () => {
                       {createPatient.isPending ? 'Saving…' : 'Save Patient'}
                     </button>
                     {hasCreateError && (
-                      <div className="form-error">Could not save patient. Check inputs.</div>
+                      <div className="form-error">{createErrorMessage}</div>
                     )}
                   </form>
 
